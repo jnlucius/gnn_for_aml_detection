@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fraud Transaction Monitor</title>
+<link rel="stylesheet" href="styles.css">
+<script src="js/vendor/chart.umd.js"></script>
+</head>
+<body>
+
+  <div class="topbar">
+    <div>
+      <div class="brand-eyebrow">Fraud Transaction Monitor</div>
+      <div class="brand-title">Transaction Stream <span>&mdash; live view &amp; analyst review</span></div>
+      <div class="meta-row" id="metaRow">model <b>&mdash;</b> &nbsp;·&nbsp; dataset <b>&mdash;</b> &nbsp;·&nbsp; threshold <b>&mdash;</b></div>
+    </div>
+    <div class="status-pill demo" id="statusPill"><span class="dot"></span><span id="statusText">CONNECTING…</span></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="live">Live Stream</button>
+    <button class="tab-btn" data-tab="analyst">Analyst Review</button>
+  </div>
+
+  <!-- ===================== TAB 1: LIVE STREAM ===================== -->
+  <div class="tab-panel active" id="tab-live">
+    <div class="kpis">
+      <div class="kpi"><div class="label">Streamed</div><div class="value" id="kpiTotal">0</div><div class="sub">of <span id="kpiOfTotal">—</span> test txns</div></div>
+      <div class="kpi"><div class="label">Processed</div><div class="value" id="kpiProcessed" style="color:var(--green)">0</div><div class="sub">cleared, no action</div></div>
+      <div class="kpi alert"><div class="label">Fraud Alerts</div><div class="value" id="kpiAlerts">0</div><div class="sub" id="kpiAlertRate">0.00% alert rate</div></div>
+      <div class="kpi"><div class="label">Precision</div><div class="value" id="kpiPrecision">—</div><div class="sub">of alerts, truly fraud</div></div>
+      <div class="kpi"><div class="label">Recall</div><div class="value" id="kpiRecall">—</div><div class="sub">of fraud, caught</div></div>
+      <div class="kpi"><div class="label">Missed (FN)</div><div class="value" id="kpiFN" style="color:var(--red)">0</div><div class="sub">fraud not flagged</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-head"><h2>Live Transaction Ledger</h2><span class="count" id="ledgerCount">last 14</span></div>
+        <div class="ledger-body">
+          <table>
+            <thead><tr><th>Seq</th><th>Time</th><th>Txn</th><th>Score</th><th>Decision</th></tr></thead>
+            <tbody id="ledgerBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Cumulative Volume</h2><span class="count">processed vs. alerts</span></div>
+        <div class="chart-wrap"><canvas id="volumeChart"></canvas></div>
+        <div class="side-stats">
+          <div>True positives<b style="color:var(--green)" id="statTP">0</b></div>
+          <div>False positives<b style="color:var(--amber)" id="statFP">0</b></div>
+          <div>True negatives<b id="statTN">0</b></div>
+          <div>False negatives<b style="color:var(--red)" id="statFN">0</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Scoring Engine -->
+    <div class="panel" style="margin-top:16px;">
+      <div class="panel-head">
+        <h2>Live Scoring Engine</h2>
+        <span class="mode-badge replay" id="scoringModeBadge">REPLAY</span>
+      </div>
+      <div class="engine-body">
+        <div class="engine-hint" id="scoringModeHint">—</div>
+        <div class="explorer-readout" style="grid-template-columns:repeat(4,1fr);">
+          <div class="ro-card"><div class="ro-label">Model version</div><div class="ro-value" id="roModelVersion">—</div></div>
+          <div class="ro-card"><div class="ro-label">Live scoring latency</div><div class="ro-value" id="roScoringLatency">—</div></div>
+          <div class="ro-card"><div class="ro-label">Retrains so far</div><div class="ro-value" id="roRetrainCount">—</div></div>
+          <div class="ro-card"><div class="ro-label">Next retrain</div><div class="ro-value" id="roNextRetrain">—</div></div>
+        </div>
+        <div class="engine-hint" id="lastRetrainNote">—</div>
+      </div>
+    </div>
+
+    <div class="footer">Backtest monitor — ground-truth labels shown are for demo/evaluation only; a production stream would not know the true label at decision time.</div>
+  </div>
+
+
+  <!-- ===================== TAB 2: ANALYST REVIEW ===================== -->
+  <div class="tab-panel" id="tab-analyst">
+    <!-- <div class="lede">Analyst workbench for reviewing flagged transactions and comparing model candidates before promoting one to production. Ranks transactions by score (highest risk first) and cross-references each against ground truth so you can see exactly which alerts were correct.</div> -->
+
+    <!-- Primary model switcher -->
+    <div class="switcher-row">
+      <span class="cg-label" style="margin-right:2px;">Inspecting</span>
+      <div class="switcher" id="modelSwitcher"></div>
+      <span class="switcher-hint" id="switcherHint"></span>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <span class="cg-label">Also compare in table/chart</span>
+        <div class="model-checks" id="modelChecks"></div>
+      </div>
+      <div class="control-group">
+        <span class="cg-label">Top-K flagged (precision@K)</span>
+        <div class="k-buttons" id="kButtons"></div>
+      </div>
+      <div class="control-group">
+        <span class="cg-label">Dataset size</span>
+        <input class="text-input" id="datasetSizeInput" value="Small">
+      </div>
+      <div class="control-group">
+        <span class="cg-label">Run tag</span>
+        <input class="text-input" id="runTagInput" value="" placeholder="(none)">
+      </div>
+      <div class="control-group">
+        <button class="refresh-btn" id="refreshBtn">Reload results</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h2>Model Comparison</h2><span class="count" id="cmpCount">— models</span></div>
+      <div style="overflow-x:auto;">
+        <table class="cmp-table">
+          <thead><tr>
+            <th>Model</th><th>AUPRC</th><th>AUROC</th><th>F1 @ best thr</th><th>Precision @ best thr</th>
+            <th>Recall @ best thr</th><th id="pAtKHeader">Precision @ K</th><th id="rAtKHeader">Recall @ K</th><th>Avg ms / txn</th><th>Throughput (txn/s)</th>
+          </tr></thead>
+          <tbody id="cmpBody"></tbody>
+        </table>
+      </div>
+      <div class="panel-foot-hint">Click a row to inspect that model below.</div>
+    </div>
+
+    <!-- Threshold Explorer -->
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-head"><h2>Threshold Explorer</h2><span class="count" id="explorerModelLabel">—</span></div>
+      <div class="explorer-body">
+        <div class="explorer-readout">
+          <div class="ro-card"><div class="ro-label">Threshold</div><div class="ro-value" id="roThreshold">—</div></div>
+          <div class="ro-card"><div class="ro-label">Precision</div><div class="ro-value" id="roPrecision">—</div></div>
+          <div class="ro-card"><div class="ro-label">Recall</div><div class="ro-value" id="roRecall">—</div></div>
+          <div class="ro-card"><div class="ro-label">F1</div><div class="ro-value" id="roF1">—</div></div>
+          <div class="ro-card"><div class="ro-label">Alerts raised</div><div class="ro-value" id="roAlerts">—</div></div>
+        </div>
+        <input type="range" id="thresholdSlider" class="threshold-slider" min="0" max="100" value="50" step="1">
+        <div class="slider-endcaps"><span>lower threshold — more alerts, lower precision</span><span>higher threshold — fewer alerts, higher precision</span></div>
+        <button class="reset-best-btn" id="resetToBestBtn">Reset to best F1</button>
+        <div class="chart-wrap" style="min-height:200px;"><canvas id="thresholdChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Top Flagged Transactions</h2>
+          <span class="count" id="flaggedSubtitle">—</span>
+        </div>
+        <div class="ledger-body" style="max-height:480px;">
+          <table>
+            <thead><tr><th>Rank</th><th>Txn</th><th>Score</th><th>Predicted</th><th>Actual</th><th>Result</th></tr></thead>
+            <tbody id="flaggedBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Precision @ K by model</h2><span class="count">at the selected K</span></div>
+        <div class="chart-wrap"><canvas id="compareChart"></canvas></div>
+        <div class="side-stats" style="grid-template-columns:1fr;">
+          <div id="primaryModelNote">Showing the ledger for the highest-AUPRC selected model.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">Precision@K: of the K highest-scored test transactions, what fraction were actually fraud. Recall@K: of all real fraud in the test set, what fraction fell within those K.</div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/live-tab.js"></script>
+  <script src="js/analyst-tab.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+/__pycache__
+/.venv
+/gnn_light/common/__pycache__
+/gnn_light/models/__pycache__
+/gnn_light/models/account_centric_gnn/__pycache__
+/gnn_light/models/transaction_centric_gnn/__pycache__
+/gnn_light/models/xgboost/__pycache__
+/gnn_light/simulation/__pycache__
+/gnn_light/logs
+/gnn_light/output/*
+!/gnn_light/output/dashboard
